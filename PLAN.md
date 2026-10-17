@@ -14,7 +14,7 @@ Three.js r149 classic scripts, everything drawn procedurally, Web Audio sound, o
   Fly through the gap: +1 score. A coin floats in about half the gaps.
 - **Crash:** a soft bump, cartoon stars, the kid tumbles to the platform. No gore, no shaking text.
 - **Game over:** score, coins, best (per character, in localStorage) and a big RUN AGAIN button. Input is ignored for a moment so frantic tapping
-  doesn't skip the card. On a new best the kid does their signature pose (Tommy's Y peace pose, Teddy waves) with confetti.
+  doesn't skip the card. On a new best the kid does their signature pose (Tommy's Y peace pose; Teddy boxes and does a basketball jump shot) with confetti.
 - **Gentle by design:** wide gaps that narrow slowly, a slow start that speeds up a little, a ceiling you bump against instead of dying,
   and an EASY switch (wider gaps, slower, a bouncy floor) for Tommy.
 
@@ -41,7 +41,7 @@ js/scene.js    canvas textures, background layers, gates, coins, jetpack, partic
 js/hero.js     the flying kid: Kit person + jetpack, flying / tumble / signature poses
 js/game.js     physics, course generator, states, input, HUD, test hooks
 kit/           synced copy of ~/claude-games/kit (python3 ../kit/tools/sync.py .)
-dist/flappy-teddy.html   single-page build (python3 ../kit/tools/bundle.py .)
+dist/flatty-birds.html   single-page build (python3 kit/tools/bundle.py . --name flatty-birds)
 ```
 
 ## Phases

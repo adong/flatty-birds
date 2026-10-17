@@ -8,8 +8,8 @@ and every sound is synthesised.
 ## Play
 
 - **Double-click `index.html`.** It works offline because Three.js and the kit are copied into `kit/`.
-- **Send one file:** `dist/flappy-teddy.html` is the whole game in one page (about 720 KB). AirDrop or email it, then open it in a browser.
-- Rebuild that file after any edit: `python3 kit/tools/bundle.py . --name flappy-teddy`
+- **Send one file:** `dist/flatty-birds.html` is the whole game in one page (about 720 KB). AirDrop or email it, then open it in a browser.
+- Rebuild that file after any edit: `python3 kit/tools/bundle.py . --name flatty-birds`
 - The two fonts load from Google Fonts when online. Offline, the game falls back to Arial Black and the system font.
 
 | Keys | Touch / mouse | |
@@ -29,8 +29,9 @@ and every sound is synthesised.
   The viaduct above is a soft ceiling: you bump along it, you don't crash.
 - **Bonk.** Touching a train stack, a pillar or the platform plays a soft bump, cartoon stars pop, and the kid tumbles down and stands up dizzy.
   The card shows score, coins and best. Taps are ignored for a moment so frantic tapping doesn't skip it, then RUN AGAIN (or tap, or Space).
-- **New best:** "YAY!", confetti, and the kid celebrates standing on the spot: Tommy does his Y peace pose (比耶),
-  Teddy waves, then shadow-boxes and does his jump shot (his kit signature), and everyone else waves.
+- **New best:** "YAY!", confetti, and the kid does their signature moves from the kit roster, over and over: Tommy his Y peace pose (比耶)
+  with little happy hops; Teddy Mike Tyson-style boxing (jab, guard, straight), then a basketball jump shot that sends a 🏀 flying;
+  everyone else waves.
   Bests are saved per flyer (and separately for easy mode) in the browser, so `index.html` and the dist page each keep their own.
 - **Gentle by design:** soft gravity, a hop rises about 1.7 m, wide gaps that narrow slowly over the first 50 gates, and a slow start that speeds up a little.
 - **Easy mode (🐣):** wider gaps (8.4 m narrowing to 7.2 m instead of 7.0 to 5.4), slower, smaller jumps between gaps, and a bouncy floor
@@ -57,7 +58,8 @@ and physically reachable at top speed. Then the autopilot flies every course. La
 too-big steps and crashes.
 
 Other test hooks: `flappy.step(seconds, { auto })` advances the game and draws synchronously (the Browser pane throttles animation when hidden),
-`flappy.crash()`, `flappy.pick(id)`, `flappy.easy(on)` and `flappy.peek(distance)` for a close-up camera.
+`flappy.crash()`, `flappy.pick(id)`, `flappy.easy(on)`, `flappy.peek(distance)` for a close-up camera, and `flappy.hero.move`
+(which celebration move is playing).
 
 ## Files
 
@@ -67,7 +69,7 @@ js/scene.js      canvas textures; sky, city layers, platform and viaduct; train-
 js/hero.js       the flying kid: Kit person + jetpack, flying / tumble / stand / celebration poses
 js/game.js       physics, course generator, autopilot, fairness check, states, input, HUD, test hooks
 kit/             copy of ~/claude-games/kit (python3 ../kit/tools/sync.py .); don't edit it here
-dist/flappy-teddy.html   the single-page build
+dist/flatty-birds.html   the single-page build
 PLAN.md          the plan this was built from
 ```
 
@@ -77,7 +79,8 @@ Written here first; worth moving into `~/claude-games/kit` if another game wants
 
 - **Standing celebrations** (`standPose` in `js/hero.js`): `wave` and `peace` stride while they pose because they were made for running buddies.
   This settles the legs so a kid can wave or do the Y pose on the spot. A `still` option for `Kit.people.pose` would do the same.
-- **Celebration sequence** (`celebration` in `js/hero.js`): wave, then the roster signature poses in turn.
+- **Celebration loop** (`celebration` and `segment` in `js/hero.js`): the roster signature moves in turn, each turned to read best
+  (boxing three-quarters on, the jump shot side-on), with the jump and the 🏀 for the jump shot (`handWorld` places the ball between the hands).
 - **Jetpack model** (`buildJetpack` in `js/scene.js`) with flames that grow on each hop; Metro Surfer has its own jetpack too.
 - **Particle pool** (`makeParticles` in `js/scene.js`): point sprites with per-particle colour, fade, gravity and drag.
 - **Sounds** made with `Kit.sound.tone` / `hiss`: a jetpack puff for each hop, a two-note chime per gate and a soft cartoon bonk (`OWN_SOUNDS` in `js/game.js`).

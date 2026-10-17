@@ -903,6 +903,7 @@
     get state() { return G.state; },
     G, P,
     get course() { return course; },
+    get hero() { return hero; },
     start: startGame,
     flap: primary,
     pick(id) { pickCharacter(id, true); return entry.id; },

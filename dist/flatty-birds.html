@@ -232,7 +232,7 @@
 <div id="toasts"></div>
 
 <div id="title" class="screen">
-  <div class="logo"><span class="l1">FLA<em>TT</em>Y</span><span class="l2">BIRDS</span></div>
+  <div class="logo" aria-label="FlaTTy Birds"><span class="l1">Fla<em>TT</em>y</span><span class="l2">Birds</span></div>
   <p class="tag">Jetpack through the train towers with Teddy &amp; Tommy!</p>
   <div class="pick-label">PICK YOUR FLYER</div>
   <div id="picker" class="picker" role="radiogroup" aria-label="Pick your flyer"></div>
@@ -1897,27 +1897,42 @@
 <script>
 /* FlaTTy Birds — the flying kid.
    Wraps a Kit person (Kit.people.build) with a jetpack and the poses this game needs: flying side-on with flapping arms,
-   tumbling after a bump, standing, and a celebration on a new best (Tommy's Y peace pose, Teddy waves then boxes and
-   shoots a hoop, everyone else waves), done standing on the spot with little happy hops.
+   tumbling after a bump, standing, and a celebration on a new best: the roster signature moves (Tommy's Y peace pose;
+   Teddy's Mike Tyson-style boxing, then a basketball jump shot with a 🏀), and a wave for everyone else.
 
    Hierarchy: root (the body's centre, = the hit circle) > tilt (pitch, rotation.z) > turn (yaw) > lean (rotation.x)
               > fit (scale, feet moved down so the body centre sits on root) > person.root */
 (function () {
   'use strict';
-  const T = THREE, A = window.FlappyScene, people = window.Kit.people, roster = window.Kit.roster;
+  const T = THREE, A = window.FlappyScene, Kit = window.Kit, people = Kit.people;
 
   const SCALE = 0.9; // a 2 m kit person flies at 1.8 m (the hit circle is smaller: near misses count)
   const CENTER = 1.05; // body centre height in the person's own units
   const FLY_YAW = -Math.PI / 2 - 0.62; // facing +x, turned three-quarters toward the camera so faces show
   const FACE_YAW = -Math.PI; // facing the camera (same turn direction as FLY_YAW, so the turn is short)
+  // Celebrations turn a little sideways where a move reads better from the side.
+  const POSE_YAW = { boxing: -Math.PI + 0.75, jumpshot: -Math.PI / 2 - 0.5 };
+  const SEG_T = { boxing: 2.1, jumpshot: 1.9 }; // seconds per move in the celebration loop (others 1.8)
+  const RELEASE = 0.62; // the jump shot lets go of the ball this far into its move
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const damp = (k, dt) => 1 - Math.exp(-k * dt);
 
-  // The celebration sequence for a new best. Teddy's brief says he waves; his kit signature adds boxing and a jump shot.
+  // The celebration loop for a new best: the roster's signature moves in order (Teddy: boxing, then the jump shot;
+  // Tommy: peace), or a wave for characters without one.
   function celebration(entry) {
-    const sig = (entry.signature || []).slice();
-    if (!sig.includes('peace') && !sig.includes('wave')) sig.unshift('wave');
-    return sig;
+    return entry.signature && entry.signature.length ? entry.signature.slice() : ['wave'];
+  }
+
+  // Which move of the loop is playing at `time`, and how far into it.
+  function segment(seq, time) {
+    const total = seq.reduce((a, m) => a + (SEG_T[m] || 1.8), 0);
+    let t = time % total;
+    for (const m of seq) {
+      const d = SEG_T[m] || 1.8;
+      if (t < d) return { mode: m, t };
+      t -= d;
+    }
+    return { mode: seq[0], t: 0 };
   }
 
   // Kit poses like 'wave' and 'peace' stride while they pose (they were made for running buddies).
@@ -1966,12 +1981,53 @@
     root.add(stars);
 
     const seq = celebration(entry);
-    const st = { phase: 0, yaw: FLY_YAW, pitch: 0, lean: 0, thrust: 0, mode: 'hover', modeT: 0, flapT: 9, spin: 0, dizzy: 0, hop: 0 };
+    // the basketball for the jump shot: held overhead, then shot up and away
+    let ball = null;
+    const ballV = new T.Vector3(), handA = new T.Vector3(), handB = new T.Vector3();
+    if (seq.includes('jumpshot')) {
+      ball = new T.Sprite(new T.SpriteMaterial({ map: Kit.gfx.emojiTexture('🏀'), depthWrite: false }));
+      ball.scale.setScalar(0.42);
+      ball.visible = false;
+      root.add(ball);
+    }
+    const st = { phase: 0, yaw: FLY_YAW, pitch: 0, lean: 0, thrust: 0, mode: 'hover', modeT: 0, flapT: 9, spin: 0, dizzy: 0, hop: 0, shot: false };
     turn.rotation.y = st.yaw;
+
+    // t = time into the jump shot (or -1 when another move is playing); ball positions are in root space
+    function updateBall(t, dt, hopStep) {
+      if (t < 0 || t > RELEASE + 1.1) {
+        ball.visible = false;
+        st.shot = false;
+        return;
+      }
+      ball.visible = true;
+      if (t < RELEASE) {
+        // between the hands, just above them
+        root.updateMatrixWorld(true);
+        people.handWorld(p, -1, handA);
+        people.handWorld(p, 1, handB);
+        ball.position.copy(handA).add(handB).multiplyScalar(0.5);
+        root.worldToLocal(ball.position);
+        ball.position.y += 0.18;
+        st.shot = false;
+        return;
+      }
+      if (!st.shot) {
+        st.shot = true;
+        ballV.set(2.8, 5.2, 0); // up and toward the way he's facing (+x)
+        try { Kit.sound.swish(); } catch (e) { /* sound is optional */ }
+      }
+      ballV.y -= 9.8 * dt;
+      ball.position.addScaledVector(ballV, dt);
+      ball.position.y -= hopStep; // root moves with the hop; the ball shouldn't
+    }
 
     return {
       entry, root, person: p, jet,
       get hop() { return st.hop; },
+      get ball() { return ball; },
+      // which celebration move is playing and how far into it (for tests)
+      get move() { return st.mode === 'celebrate' ? segment(seq, st.modeT) : null; },
       // hover, fly, tumble, stand, celebrate
       setMode(mode) {
         if (mode !== st.mode) {
@@ -1996,8 +2052,9 @@
         st.thrust = Math.max(0, st.thrust - dt * 2.4);
         const m = st.mode;
         const flying = m === 'hover' || m === 'fly';
+        const cele = m === 'celebrate' ? segment(seq, st.modeT) : null;
         // facing
-        const wantYaw = flying || m === 'tumble' ? FLY_YAW : FACE_YAW;
+        const wantYaw = flying || m === 'tumble' ? FLY_YAW : cele ? POSE_YAW[cele.mode] || FACE_YAW : FACE_YAW;
         st.yaw += (wantYaw - st.yaw) * damp(m === 'tumble' ? 4 : 6, dt);
         turn.rotation.y = st.yaw;
         // pitch: nose up while rising, down while falling; a tumble spins head over heels
@@ -2017,17 +2074,21 @@
 
         // limbs
         st.phase += dt * (flying ? 9 : 6);
+        const lastHop = st.hop;
         st.hop = 0;
         if (flying) {
           people.pose(p, st.phase, 'jet', damp(14, dt));
           flapArms(p, st.flapT, st.modeT);
         } else if (m === 'tumble') people.pose(p, st.phase, 'fall', damp(14, dt));
         else if (m === 'celebrate') {
-          // each pose of the sequence for 1.8 s, looping; little happy hops all along
-          const mode = seq[Math.floor(st.modeT / 1.8) % seq.length];
+          const { mode, t } = cele;
           standPose(p, st.modeT * 6, mode, damp(12, dt));
-          st.hop = Math.abs(Math.sin(st.modeT * 5.5)) * 0.28;
+          if (mode === 'jumpshot') st.hop = t > 0.15 && t < 0.95 ? Math.sin((Math.PI * (t - 0.15)) / 0.8) * 0.75 : 0;
+          else if (mode === 'boxing') st.hop = Math.abs(Math.sin(st.modeT * 7)) * 0.05; // light on his feet
+          else st.hop = Math.abs(Math.sin(st.modeT * 5.5)) * 0.28; // little happy hops
+          if (ball) updateBall(mode === 'jumpshot' ? t : -1, dt, st.hop - lastHop);
         } else standPose(p, st.modeT * 3, 'stand', damp(10, dt));
+        if (ball && m !== 'celebrate') ball.visible = false;
 
         // jet flames: big right after a hop, a small idle flicker otherwise, off once landed
         const on = flying || m === 'tumble';
@@ -2972,6 +3033,7 @@
     get state() { return G.state; },
     G, P,
     get course() { return course; },
+    get hero() { return hero; },
     start: startGame,
     flap: primary,
     pick(id) { pickCharacter(id, true); return entry.id; },
