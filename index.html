@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#3b93e6">
+<title>FlaTTy Birds</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --yellow: #ffd400;
+    --pink: #ff3d7f;
+    --cyan: #18d4ff;
+    --mint: #5fe3b5;
+    --ink: #14121f;
+    --display: 'Bungee', 'Arial Black', Impact, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #8ccbf6; color: #fff;
+    font-family: 'Rubik', system-ui, -apple-system, sans-serif;
+    touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 60%, rgba(10, 8, 30, 0.3) 100%); }
+  .hidden { opacity: 0 !important; pointer-events: none !important; visibility: hidden; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; transition: opacity 0.3s; }
+  .hud-left { position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); }
+  .hud-right { position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); display: flex; gap: 10px; pointer-events: auto; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(20, 18, 31, 0.55); border: 3px solid rgba(255, 255, 255, 0.9); border-radius: 999px;
+    padding: 5px 16px 5px 6px; font-family: var(--display); font-size: 24px; line-height: 1;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  }
+  .coin-icon {
+    width: 28px; height: 28px; border-radius: 50%; flex: none;
+    background: radial-gradient(circle at 35% 35%, #fff6b0, #ffc928 45%, #d48a00);
+    border: 2px solid #8a5a00; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+  }
+  .ibtn {
+    width: 52px; height: 52px; border-radius: 16px; font-size: 22px; line-height: 1;
+    background: rgba(20, 18, 31, 0.5); border: 3px solid rgba(255, 255, 255, 0.8);
+    display: grid; place-items: center; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  }
+  .ibtn:active { transform: scale(0.92); }
+  .score {
+    position: absolute; left: 50%; top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%);
+    font-family: var(--display); font-size: clamp(54px, 11vw, 88px); line-height: 1; letter-spacing: 1px;
+    -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill;
+    text-shadow: 0 5px 0 var(--ink), 0 10px 22px rgba(0, 0, 0, 0.3);
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 520px) { .score { top: calc(max(12px, env(safe-area-inset-top)) + 64px); } }
+  .bump { animation: bump 0.3s cubic-bezier(.3, 1.8, .5, 1); }
+  .score.bump { animation: scoreBump 0.3s cubic-bezier(.3, 1.8, .5, 1); }
+  @keyframes bump { from { transform: scale(1.35); } }
+  @keyframes scoreBump { from { transform: translateX(-50%) scale(1.35); } }
+
+  #count {
+    position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); pointer-events: none;
+    font-family: var(--display); font-size: clamp(90px, 22vw, 190px); color: var(--yellow); opacity: 0;
+    -webkit-text-stroke: 5px var(--ink); paint-order: stroke fill; text-shadow: 0 9px 0 var(--ink), 0 18px 30px rgba(0, 0, 0, 0.35);
+  }
+  #count.tick { animation: tick 1s ease-out forwards; }
+  #count.go { color: var(--mint); animation: tick 0.9s ease-out forwards; }
+  @keyframes tick {
+    0% { transform: translate(-50%, -50%) scale(2.2) rotate(-8deg); opacity: 0; }
+    15% { transform: translate(-50%, -50%) scale(1) rotate(-4deg); opacity: 1; }
+    70% { opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(0.85) rotate(-4deg); opacity: 0; }
+  }
+  .tap-hint { position: fixed; left: 50%; top: 62%; transform: translateX(-50%); font-family: var(--display); font-size: 20px; text-shadow: 0 2px 0 var(--ink); pointer-events: none; opacity: 0; white-space: nowrap; }
+  .counting .tap-hint { opacity: 1; animation: pulse 0.8s ease-in-out infinite; }
+
+  #toasts { position: fixed; left: 50%; top: 26%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+  .toast {
+    font-family: var(--display); font-size: clamp(28px, 6vw, 46px); color: var(--yellow); white-space: nowrap;
+    -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-shadow: 0 4px 0 var(--ink);
+    animation: toast 1.3s ease-out forwards;
+  }
+  @keyframes toast {
+    0% { transform: scale(0.3) rotate(-6deg); opacity: 0; }
+    15% { transform: scale(1.15) rotate(-3deg); opacity: 1; }
+    25% { transform: scale(1) rotate(-3deg); }
+    80% { opacity: 1; }
+    100% { transform: translateY(-30px) rotate(-3deg); opacity: 0; }
+  }
+
+  /* ---------- screens ---------- */
+  .screen {
+    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: clamp(10px, 2.2vh, 18px); padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); text-align: center; transition: opacity 0.3s;
+    background: linear-gradient(180deg, rgba(20, 18, 40, 0.05), rgba(20, 18, 40, 0.5));
+    overflow-y: auto; justify-content: safe center;
+  }
+  .logo { transform: rotate(-5deg); line-height: 0.92; margin-bottom: 4px; }
+  .logo span {
+    display: block; font-family: var(--display); font-size: clamp(44px, min(12vw, 10vh), 112px);
+    -webkit-text-stroke: 4px var(--ink); paint-order: stroke fill;
+  }
+  .logo .l1 { color: var(--yellow); text-shadow: 0 6px 0 var(--pink), 0 11px 0 var(--ink), 0 18px 30px rgba(0, 0, 0, 0.35); }
+  .logo em { font-style: normal; color: var(--pink); text-shadow: 0 6px 0 var(--yellow), 0 11px 0 var(--ink), 0 18px 30px rgba(0, 0, 0, 0.35); }
+  .logo .l2 { color: var(--cyan); margin-left: 0.7em; text-shadow: 0 6px 0 var(--yellow), 0 11px 0 var(--ink), 0 18px 30px rgba(0, 0, 0, 0.35); }
+  .tag { font-size: clamp(15px, 2.4vw, 20px); font-weight: 700; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
+  .btn {
+    font-family: var(--display); font-size: clamp(24px, 4.4vw, 32px); color: var(--ink);
+    background: var(--yellow); border: 4px solid var(--ink); border-radius: 22px; padding: 16px 44px;
+    box-shadow: 0 8px 0 var(--ink), 0 14px 30px rgba(0, 0, 0, 0.3); transition: transform 0.08s, box-shadow 0.08s;
+  }
+  .btn:hover { background: #ffe03d; }
+  .btn:active { transform: translateY(6px); box-shadow: 0 2px 0 var(--ink); }
+  .btn.small { font-size: clamp(16px, 3vw, 20px); padding: 10px 22px; background: #fff; border-width: 3px; box-shadow: 0 6px 0 var(--ink); }
+  .pulse { animation: pulse 1.3s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform: scale(1.07); } }
+  .row-btns { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center; }
+  .toggle {
+    display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 18px;
+    background: rgba(20, 18, 31, 0.55); border: 3px solid rgba(255, 255, 255, 0.75);
+    font-size: 26px; line-height: 1;
+  }
+  .toggle b { font-family: var(--display); font-size: 16px; font-weight: 400; }
+  .toggle[aria-pressed="true"] { background: var(--mint); color: var(--ink); border-color: var(--ink); box-shadow: 0 5px 0 var(--ink); }
+  .howto { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 18px; max-width: 720px; font-weight: 700; font-size: 15px; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
+  .howto > div { display: flex; align-items: center; gap: 6px; }
+  kbd {
+    display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 7px;
+    font: 700 15px/1 system-ui, sans-serif; color: var(--ink); background: #fff; border-radius: 8px; box-shadow: 0 3px 0 #9aa;
+  }
+  .touch-hint { display: none; font-weight: 700; font-size: 17px; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
+  @media (hover: none) and (pointer: coarse) {
+    .howto { display: none; }
+    .touch-hint { display: block; }
+  }
+  .best { font-family: var(--display); font-size: 18px; letter-spacing: 1px; text-shadow: 0 2px 0 var(--ink); }
+  .best b { color: var(--yellow); }
+  .corner { position: fixed; top: max(14px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); }
+  .credit {
+    position: fixed; right: max(14px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom));
+    font-size: 13px; font-weight: 700; opacity: 0.85; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); pointer-events: none;
+  }
+  .credit b { color: #ffcfb8; }
+
+  /* ---------- picker ---------- */
+  .pick-label { font-family: var(--display); font-size: 15px; letter-spacing: 1px; text-shadow: 0 2px 0 var(--ink); margin-bottom: -8px; }
+  .picker { display: flex; gap: 10px; max-width: 100%; overflow-x: auto; padding: 10px 8px 12px; scrollbar-width: none; touch-action: pan-x; }
+  .picker::-webkit-scrollbar { display: none; }
+  .avatar {
+    flex: none; width: 104px; padding: 6px 6px 8px; border-radius: 18px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    background: rgba(20, 18, 31, 0.55); border: 3px solid rgba(255, 255, 255, 0.7); transition: transform 0.15s, background 0.15s;
+  }
+  .avatar img { width: 88px; height: 88px; border-radius: 14px; background: radial-gradient(circle at 50% 35%, #a5dcff, #2a7bd6); }
+  .avatar[data-id="tommy"] img { background: radial-gradient(circle at 50% 35%, #c9ffe9, #2fb38a); }
+  .avatar[data-id="zombie"] img { background: radial-gradient(circle at 50% 35%, #9be37a, #233b2a); }
+  .avatar .nm { font-family: var(--display); font-size: 15px; }
+  .avatar .bs { font-size: 11px; font-weight: 700; opacity: 0.85; }
+  .avatar:hover { transform: translateY(-2px); }
+  .avatar[aria-checked="true"] {
+    border-color: var(--yellow); background: rgba(255, 212, 0, 0.3); transform: translateY(-4px) scale(1.06);
+    box-shadow: 0 0 0 3px var(--ink), 0 10px 24px rgba(0, 0, 0, 0.35);
+  }
+  @media (max-width: 620px), (max-height: 520px) {
+    .avatar { width: 80px; }
+    .avatar img { width: 64px; height: 64px; }
+  }
+
+  /* ---------- game over ---------- */
+  #over { justify-content: flex-start; padding-top: max(28px, 5vh, env(safe-area-inset-top)); background: linear-gradient(180deg, rgba(20, 18, 40, 0.5), rgba(20, 18, 40, 0) 62%); }
+  .bonk {
+    font-family: var(--display); font-size: clamp(56px, 12vw, 110px); color: var(--pink); transform: rotate(-6deg);
+    -webkit-text-stroke: 4px var(--ink); paint-order: stroke fill;
+    text-shadow: 0 7px 0 var(--yellow), 0 12px 0 var(--ink), 0 20px 30px rgba(0, 0, 0, 0.4);
+    animation: slam 0.45s cubic-bezier(.2, 1.6, .4, 1);
+  }
+  .bonk.paused { color: var(--cyan); animation: none; }
+  .bonk.yay { color: var(--mint); }
+  @keyframes slam { from { transform: scale(2.2) rotate(-12deg); opacity: 0; } }
+  .card {
+    min-width: min(340px, 88vw); padding: 14px 22px; border-radius: 20px;
+    background: rgba(20, 18, 31, 0.72); border: 3px solid #fff; display: flex; flex-direction: column; gap: 4px;
+  }
+  .card .row { display: flex; justify-content: space-between; align-items: baseline; gap: 24px; font-weight: 800; font-size: 16px; letter-spacing: 1px; }
+  .card .row b { font-family: var(--display); font-size: 28px; color: var(--yellow); font-weight: 400; }
+  .flag { display: none; }
+  .flag.on { display: block; font-family: var(--display); font-size: 28px; color: var(--yellow); -webkit-text-stroke: 1.5px var(--ink); paint-order: stroke fill; animation: pulse 0.9s ease-in-out infinite; }
+  #over .spacer { flex: 1 1 auto; }
+  .over-btns { flex-wrap: nowrap; gap: 12px; }
+  @media (max-width: 480px) {
+    .over-btns .btn { padding: 14px 24px; }
+    .over-btns .btn.small { padding: 12px 16px; font-size: 22px; }
+    .over-btns .btn.small span { display: none; }
+    .card { padding: 10px 18px; }
+    .card .row b { font-size: 24px; }
+  }
+  .hint { font-size: 14px; font-weight: 700; opacity: 0.85; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
+  @media (max-height: 560px) and (orientation: landscape) {
+    #over { gap: 6px; padding-top: 10px; }
+    .bonk { font-size: 40px; }
+    .card { flex-direction: row; gap: 18px; padding: 8px 16px; }
+    .card .row { gap: 8px; }
+    .card .row b { font-size: 22px; }
+  }
+
+  #loading {
+    position: fixed; inset: 0; display: grid; place-items: center; background: #3b93e6;
+    font-family: var(--display); font-size: 28px; letter-spacing: 2px; padding: 24px; text-align: center;
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div class="vignette"></div>
+
+<div id="hud" class="hidden">
+  <div class="hud-left"><div id="coinPill" class="pill"><i class="coin-icon"></i><span id="coins">0</span></div></div>
+  <div id="score" class="score">0</div>
+  <div class="hud-right">
+    <button id="pauseBtn" class="ibtn" title="Pause (P)" aria-label="Pause">❚❚</button>
+    <button id="muteBtn" class="ibtn" title="Sound (M)" aria-label="Sound on or off">🔊</button>
+  </div>
+  <div class="tap-hint" id="tapHint">TAP TO FLY!</div>
+</div>
+<div id="count"></div>
+<div id="toasts"></div>
+
+<div id="title" class="screen">
+  <div class="logo"><span class="l1">FLA<em>TT</em>Y</span><span class="l2">BIRDS</span></div>
+  <p class="tag">Jetpack through the train towers with Teddy &amp; Tommy!</p>
+  <div class="pick-label">PICK YOUR FLYER</div>
+  <div id="picker" class="picker" role="radiogroup" aria-label="Pick your flyer"></div>
+  <div class="row-btns">
+    <button id="easyBtn" class="toggle" aria-pressed="false" title="Easy mode (E): wider gaps, slower, bouncy floor"><span>🐣</span><b>EASY OFF</b></button>
+    <button id="playBtn" class="btn pulse">▶ PLAY</button>
+  </div>
+  <div class="howto">
+    <div><kbd>Space</kbd> or click: hop</div>
+    <div><kbd>←</kbd><kbd>→</kbd> pick a flyer</div>
+    <div><kbd>E</kbd> easy mode</div>
+    <div><kbd>P</kbd> pause</div>
+    <div><kbd>M</kbd> sound</div>
+  </div>
+  <p class="touch-hint">Tap anywhere to hop!</p>
+  <div class="best"><span id="bestName">TEDDY</span>'S BEST <b id="bestTitle">0</b><span id="bestMode"></span></div>
+  <button id="muteTitle" class="ibtn corner" title="Sound (M)" aria-label="Sound on or off">🔊</button>
+  <div class="credit">built with <b>Claude Code</b></div>
+</div>
+
+<div id="pause" class="screen hidden">
+  <div class="bonk paused">PAUSED</div>
+  <button id="resumeBtn" class="btn">▶ RESUME</button>
+  <p class="hint">P · Esc · Space · Tap</p>
+</div>
+
+<div id="over" class="screen hidden">
+  <div class="bonk" id="ovTitle">BONK!</div>
+  <div class="card">
+    <div class="row"><span>SCORE</span><b id="ovScore">0</b></div>
+    <div class="row"><span>COINS</span><b id="ovCoins">0</b></div>
+    <div class="row"><span id="ovBestLabel">BEST</span><b id="ovBest">0</b></div>
+  </div>
+  <div id="newBest" class="flag">★ NEW BEST! ★</div>
+  <div class="spacer"></div>
+  <div class="row-btns over-btns">
+    <button id="againBtn" class="btn">↻ RUN AGAIN</button>
+    <button id="changeBtn" class="btn small" title="Pick another flyer">👤<span> CHANGE</span></button>
+  </div>
+</div>
+
+<div id="loading">LOADING…</div>
+
+<script src="kit/three.min.js"></script>
+<script src="kit/gfx.js"></script>
+<script src="kit/people.js"></script>
+<script src="kit/roster.js"></script>
+<script src="kit/portraits.js"></script>
+<script src="kit/sound.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/hero.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
