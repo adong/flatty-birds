@@ -17,6 +17,8 @@
   const POSE_YAW = { boxing: -Math.PI + 0.75, jumpshot: -Math.PI / 2 - 0.5 };
   const SEG_T = { boxing: 2.1, jumpshot: 1.9 }; // seconds per move in the celebration loop (others 1.8)
   const RELEASE = 0.62; // the jump shot lets go of the ball this far into its move
+  // Mid-air signature moves (the buddy's hello, goodbye and hand-over) face where they read best.
+  const AIR_YAW = { peace: -Math.PI + 0.45, wave: -Math.PI + 0.5, boxing: -Math.PI + 0.75 };
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const damp = (k, dt) => 1 - Math.exp(-k * dt);
 
@@ -50,7 +52,9 @@
     }
   }
 
-  function build(entry) {
+  // opts.scale: size relative to a 2 m kit person (default SCALE; the buddy uses his roster buddyScale).
+  function build(entry, opts = {}) {
+    const scale = opts.scale || SCALE;
     const root = new T.Group();
     const tilt = new T.Group();
     const turn = new T.Group();
@@ -60,8 +64,8 @@
     tilt.add(turn);
     turn.add(lean);
     lean.add(fit);
-    fit.scale.setScalar(SCALE);
-    fit.position.y = -CENTER * SCALE;
+    fit.scale.setScalar(scale);
+    fit.position.y = -CENTER * scale;
     const p = people.build(entry.look);
     fit.add(p.root);
     p.root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
@@ -93,7 +97,7 @@
       ball.visible = false;
       root.add(ball);
     }
-    const st = { phase: 0, yaw: FLY_YAW, pitch: 0, lean: 0, thrust: 0, mode: 'hover', modeT: 0, flapT: 9, spin: 0, dizzy: 0, hop: 0, shot: false };
+    const st = { phase: 0, yaw: FLY_YAW, pitch: 0, lean: 0, thrust: 0, mode: 'hover', modeT: 0, flapT: 9, spin: 0, dizzy: 0, hop: 0, shot: false, air: null, airT: 0 };
     turn.rotation.y = st.yaw;
 
     // t = time into the jump shot (or -1 when another move is playing); ball positions are in root space
@@ -128,6 +132,15 @@
     return {
       entry, root, person: p, jet,
       get hop() { return st.hop; },
+      headTop: (2.2 - CENTER) * scale, // top of the head above root
+      // A signature move done mid-air while flying (null: back to flapping). Returns seconds into the move.
+      airPose(mode) {
+        if (mode !== st.air) {
+          st.air = mode;
+          st.airT = 0;
+        }
+        return st.airT;
+      },
       get ball() { return ball; },
       // which celebration move is playing and how far into it (for tests)
       get move() { return st.mode === 'celebrate' ? segment(seq, st.modeT) : null; },
@@ -157,7 +170,9 @@
         const flying = m === 'hover' || m === 'fly';
         const cele = m === 'celebrate' ? segment(seq, st.modeT) : null;
         // facing
-        const wantYaw = flying || m === 'tumble' ? FLY_YAW : cele ? POSE_YAW[cele.mode] || FACE_YAW : FACE_YAW;
+        const air = flying ? st.air : null;
+        st.airT += dt;
+        const wantYaw = air ? AIR_YAW[air] || FLY_YAW : flying || m === 'tumble' ? FLY_YAW : cele ? POSE_YAW[cele.mode] || FACE_YAW : FACE_YAW;
         st.yaw += (wantYaw - st.yaw) * damp(m === 'tumble' ? 4 : 6, dt);
         turn.rotation.y = st.yaw;
         // pitch: nose up while rising, down while falling; a tumble spins head over heels
@@ -166,7 +181,7 @@
           tilt.rotation.z = st.spin;
         } else {
           let want = 0;
-          if (m === 'fly') want = clamp(vy * 0.045, -0.42, 0.3);
+          if (m === 'fly' && !air) want = clamp(vy * 0.045, -0.42, 0.3);
           else if (m === 'hover') want = Math.sin(st.modeT * 2.2) * 0.05;
           st.spin = 0;
           st.pitch += (want - st.pitch) * damp(10, dt);
@@ -179,7 +194,12 @@
         st.phase += dt * (flying ? 9 : 6);
         const lastHop = st.hop;
         st.hop = 0;
-        if (flying) {
+        if (air) {
+          // the move with the arms, legs dangling under the jetpack
+          standPose(p, air === 'boxing' ? st.airT * 6 : st.phase, air, damp(14, dt));
+          p.legL.rotation.x = 0.3 + Math.sin(st.phase) * 0.15;
+          p.legR.rotation.x = 0.1 - Math.sin(st.phase) * 0.15;
+        } else if (flying) {
           people.pose(p, st.phase, 'jet', damp(14, dt));
           flapArms(p, st.flapT, st.modeT);
         } else if (m === 'tumble') people.pose(p, st.phase, 'fall', damp(14, dt));
@@ -205,7 +225,7 @@
         st.dizzy = Math.max(0, st.dizzy - dt);
         stars.visible = st.dizzy > 0;
         if (stars.visible) {
-          stars.position.y = (2.15 - CENTER) * SCALE + 0.3;
+          stars.position.y = (2.15 - CENTER) * scale + 0.3;
           const a = st.modeT * 5;
           stars.children.forEach((s, i) => {
             const b = a + (i * Math.PI * 2) / 3;

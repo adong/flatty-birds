@@ -16,6 +16,7 @@ and every sound is synthesised.
 |---|---|---|
 | Space, ↑, W or Enter | tap or click anywhere | hop (on the title: play; after a run: run again) |
 | ← → or A D | tap a card | pick a flyer on the title screen |
+| T | buddy button (bottom right) or his card on the title | call your buddy, the other brother: any time, as often as you like |
 | E | 🐣 button | easy mode on or off (title screen) |
 | P or Esc | ❚❚ button | pause; Space or a tap resumes after a short countdown |
 | M | 🔊 button | sound on or off |
@@ -34,6 +35,16 @@ and every sound is synthesised.
   everyone else waves.
   Bests are saved per flyer (and separately for easy mode) in the browser, so `index.html` and the dist page each keep their own.
 - **Gentle by design:** soft gravity, a hop rises about 1.7 m, wide gaps that narrow slowly over the first 50 gates, and a slow start that speeds up a little.
+- **Your buddy is the other brother** (like Metro Surfer's): Tommy flies along with every flyer, and Teddy comes when Tommy is the one playing.
+  Tap the big button with his face (bottom right), his dashed card on the title screen (he shows up behind the menu right away), or press T.
+  For about 10 s he flies a little behind you with his own jetpack and name tag, copying your hops a beat later along the same path.
+  He says hi with his signature move (Tommy's Y peace pose, Teddy's boxing), flies up close to hand over a treat
+  (🍦 💧 🧃 🍪 🍉 🍌, "🍦 ICE CREAM FROM TOMMY!") that arcs into your hand, then says bye (Tommy's Y again, or Teddy's jump shot
+  with a 🏀 that flies ahead: SWISH!) and drops back out of view. Tap again after his treat and he comes back for another hello and another treat.
+  There's no cooldown, and before his treat an extra tap just keeps him coming.
+  **He has your back:** while he's with you (until he starts dropping back, about 9.6 s; the bar with his face shows the time left, and his button glows),
+  bumping into a gate doesn't end the run. The train stack and pillar pop instead, or the platform bounces you back up,
+  "TOMMY SAVED YOU!" (or "TEDDY SAVED YOU!") pops up and he does his hello move. The rest is just for fun: the score works the same with or without him.
 - **Easy mode (🐣):** wider gaps (8.4 m narrowing to 7.2 m instead of 7.0 to 5.4), slower, smaller jumps between gaps, and a bouncy floor
   (touching the platform bounces you back up). It is on by default for Tommy and remembered per flyer.
 
@@ -58,8 +69,9 @@ and physically reachable at top speed. Then the autopilot flies every course. La
 too-big steps and crashes.
 
 Other test hooks: `flappy.step(seconds, { auto })` advances the game and draws synchronously (the Browser pane throttles animation when hidden),
-`flappy.crash()`, `flappy.pick(id)`, `flappy.easy(on)`, `flappy.peek(distance)` for a close-up camera, and `flappy.hero.move`
-(which celebration move is playing).
+`flappy.crash()`, `flappy.pick(id)`, `flappy.easy(on)`, `flappy.buddy()` (calls him like his button and reports where he is;
+`flappy.buddy(false)` only reports), `flappy.peek(distance)` for a close-up camera, `flappy.hero.move` (which celebration move is playing),
+and, for screenshots from a hidden Browser pane, `flappy.keepAwake()` (don't auto-pause when hidden) and `flappy.freeze()` (stop real-time ticking).
 
 ## Files
 
@@ -67,7 +79,7 @@ Other test hooks: `flappy.step(seconds, { auto })` advances the game and draws s
 index.html       page, HUD and screens (CSS inline)
 js/scene.js      canvas textures; sky, city layers, platform and viaduct; train-stack gates, coins, jetpack, particles
 js/hero.js       the flying kid: Kit person + jetpack, flying / tumble / stand / celebration poses
-js/game.js       physics, course generator, autopilot, fairness check, states, input, HUD, test hooks
+js/game.js       physics, course generator, autopilot, fairness check, the buddy, states, input, HUD, test hooks
 kit/             copy of ~/claude-games/kit (python3 ../kit/tools/sync.py .); don't edit it here
 dist/flatty-birds.html   the single-page build
 PLAN.md          the plan this was built from
@@ -85,6 +97,9 @@ Written here first; worth moving into `~/claude-games/kit` if another game wants
 - **Particle pool** (`makeParticles` in `js/scene.js`): point sprites with per-particle colour, fade, gravity and drag.
 - **Sounds** made with `Kit.sound.tone` / `hiss`: a jetpack puff for each hop, a two-note chime per gate and a soft cartoon bonk (`OWN_SOUNDS` in `js/game.js`).
 - **Dizzy stars** that circle the head after a bump (`js/hero.js`).
+- **Mid-air signature moves** (`airPose` in `js/hero.js`): a pose done with the arms while the legs dangle, turned to read best.
+- **The buddy's path-following** (`trail`, `trailY`, `flapXs` in `js/game.js`): he replays your path and your hops a beat later.
+  Metro Surfer does the same for jumps and rolls; both could share one helper.
 
 ## Not verified
 

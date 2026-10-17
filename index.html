@@ -33,7 +33,27 @@
 
   /* ---------- HUD ---------- */
   #hud { position: fixed; inset: 0; pointer-events: none; transition: opacity 0.3s; }
-  .hud-left { position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); }
+  .hud-left { position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  /* the buddy: a guard bar with his face, and a big call button */
+  .pw { display: none; align-items: center; gap: 8px; }
+  .pw.on { display: flex; }
+  .pw .face { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 35%, #fff3d0, #ffb02e); border: 3px solid #fff; }
+  .pw .face img { width: 100%; height: 100%; object-fit: cover; }
+  .pw i { width: 110px; height: 12px; border-radius: 7px; background: rgba(20, 18, 31, 0.55); border: 2px solid #fff; overflow: hidden; }
+  .pw b { display: block; height: 100%; background: linear-gradient(90deg, #ffb02e, #ff7a1a); transform-origin: left; }
+  .buddybtn {
+    position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom));
+    pointer-events: auto; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 8px 7px; border-radius: 18px;
+    background: linear-gradient(135deg, #ffb02e, #ff7a1a); border: 3px solid #fff; box-shadow: 0 5px 0 var(--ink);
+  }
+  .buddybtn img { width: 64px; height: 64px; border-radius: 12px; background: radial-gradient(circle at 50% 35%, #fff3d0, #ffb02e); }
+  .buddybtn b { font-family: var(--display); font-size: 13px; font-weight: 400; }
+  .buddybtn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+  .buddybtn.guarding { border-color: var(--yellow); animation: glow 1.1s ease-in-out infinite; }
+  @keyframes glow { 50% { box-shadow: 0 5px 0 var(--ink), 0 0 26px 6px rgba(255, 212, 0, 0.85); } }
+  .avatar.buddy { border-style: dashed; margin-left: 6px; }
+  .avatar.buddy img { background: radial-gradient(circle at 50% 35%, #ffe2a0, #ff9f1c); }
+  .avatar.buddy .bs { color: #ffd27a; opacity: 1; }
   .hud-right { position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); display: flex; gap: 10px; pointer-events: auto; }
   .pill {
     display: inline-flex; align-items: center; gap: 8px;
@@ -81,7 +101,7 @@
   .tap-hint { position: fixed; left: 50%; top: 62%; transform: translateX(-50%); font-family: var(--display); font-size: 20px; text-shadow: 0 2px 0 var(--ink); pointer-events: none; opacity: 0; white-space: nowrap; }
   .counting .tap-hint { opacity: 1; animation: pulse 0.8s ease-in-out infinite; }
 
-  #toasts { position: fixed; left: 50%; top: 26%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+  #toasts { z-index: 5; position: fixed; left: 50%; top: 26%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
   .toast {
     font-family: var(--display); font-size: clamp(28px, 6vw, 46px); color: var(--yellow); white-space: nowrap;
     -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-shadow: 0 4px 0 var(--ink);
@@ -220,13 +240,17 @@
 <div class="vignette"></div>
 
 <div id="hud" class="hidden">
-  <div class="hud-left"><div id="coinPill" class="pill"><i class="coin-icon"></i><span id="coins">0</span></div></div>
+  <div class="hud-left">
+    <div id="coinPill" class="pill"><i class="coin-icon"></i><span id="coins">0</span></div>
+    <div id="pwBuddy" class="pw" title="Your buddy is guarding you"><span class="face"><img id="pwBuddyFace" alt=""></span><i><b></b></i></div>
+  </div>
   <div id="score" class="score">0</div>
   <div class="hud-right">
     <button id="pauseBtn" class="ibtn" title="Pause (P)" aria-label="Pause">❚❚</button>
     <button id="muteBtn" class="ibtn" title="Sound (M)" aria-label="Sound on or off">🔊</button>
   </div>
   <div class="tap-hint" id="tapHint">TAP TO FLY!</div>
+  <button id="buddyBtn" class="buddybtn" title="Call your buddy (T)"><img id="buddyFace" alt=""><b id="buddyName">TOMMY</b></button>
 </div>
 <div id="count"></div>
 <div id="toasts"></div>
@@ -243,6 +267,7 @@
   <div class="howto">
     <div><kbd>Space</kbd> or click: hop</div>
     <div><kbd>←</kbd><kbd>→</kbd> pick a flyer</div>
+    <div><kbd>T</kbd> call <span id="buddyKeyName">Tommy</span></div>
     <div><kbd>E</kbd> easy mode</div>
     <div><kbd>P</kbd> pause</div>
     <div><kbd>M</kbd> sound</div>

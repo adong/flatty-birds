@@ -33,7 +33,27 @@
 
   /* ---------- HUD ---------- */
   #hud { position: fixed; inset: 0; pointer-events: none; transition: opacity 0.3s; }
-  .hud-left { position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); }
+  .hud-left { position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  /* the buddy: a guard bar with his face, and a big call button */
+  .pw { display: none; align-items: center; gap: 8px; }
+  .pw.on { display: flex; }
+  .pw .face { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 35%, #fff3d0, #ffb02e); border: 3px solid #fff; }
+  .pw .face img { width: 100%; height: 100%; object-fit: cover; }
+  .pw i { width: 110px; height: 12px; border-radius: 7px; background: rgba(20, 18, 31, 0.55); border: 2px solid #fff; overflow: hidden; }
+  .pw b { display: block; height: 100%; background: linear-gradient(90deg, #ffb02e, #ff7a1a); transform-origin: left; }
+  .buddybtn {
+    position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom));
+    pointer-events: auto; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 8px 7px; border-radius: 18px;
+    background: linear-gradient(135deg, #ffb02e, #ff7a1a); border: 3px solid #fff; box-shadow: 0 5px 0 var(--ink);
+  }
+  .buddybtn img { width: 64px; height: 64px; border-radius: 12px; background: radial-gradient(circle at 50% 35%, #fff3d0, #ffb02e); }
+  .buddybtn b { font-family: var(--display); font-size: 13px; font-weight: 400; }
+  .buddybtn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+  .buddybtn.guarding { border-color: var(--yellow); animation: glow 1.1s ease-in-out infinite; }
+  @keyframes glow { 50% { box-shadow: 0 5px 0 var(--ink), 0 0 26px 6px rgba(255, 212, 0, 0.85); } }
+  .avatar.buddy { border-style: dashed; margin-left: 6px; }
+  .avatar.buddy img { background: radial-gradient(circle at 50% 35%, #ffe2a0, #ff9f1c); }
+  .avatar.buddy .bs { color: #ffd27a; opacity: 1; }
   .hud-right { position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); display: flex; gap: 10px; pointer-events: auto; }
   .pill {
     display: inline-flex; align-items: center; gap: 8px;
@@ -81,7 +101,7 @@
   .tap-hint { position: fixed; left: 50%; top: 62%; transform: translateX(-50%); font-family: var(--display); font-size: 20px; text-shadow: 0 2px 0 var(--ink); pointer-events: none; opacity: 0; white-space: nowrap; }
   .counting .tap-hint { opacity: 1; animation: pulse 0.8s ease-in-out infinite; }
 
-  #toasts { position: fixed; left: 50%; top: 26%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+  #toasts { z-index: 5; position: fixed; left: 50%; top: 26%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
   .toast {
     font-family: var(--display); font-size: clamp(28px, 6vw, 46px); color: var(--yellow); white-space: nowrap;
     -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-shadow: 0 4px 0 var(--ink);
@@ -220,13 +240,17 @@
 <div class="vignette"></div>
 
 <div id="hud" class="hidden">
-  <div class="hud-left"><div id="coinPill" class="pill"><i class="coin-icon"></i><span id="coins">0</span></div></div>
+  <div class="hud-left">
+    <div id="coinPill" class="pill"><i class="coin-icon"></i><span id="coins">0</span></div>
+    <div id="pwBuddy" class="pw" title="Your buddy is guarding you"><span class="face"><img id="pwBuddyFace" alt=""></span><i><b></b></i></div>
+  </div>
   <div id="score" class="score">0</div>
   <div class="hud-right">
     <button id="pauseBtn" class="ibtn" title="Pause (P)" aria-label="Pause">❚❚</button>
     <button id="muteBtn" class="ibtn" title="Sound (M)" aria-label="Sound on or off">🔊</button>
   </div>
   <div class="tap-hint" id="tapHint">TAP TO FLY!</div>
+  <button id="buddyBtn" class="buddybtn" title="Call your buddy (T)"><img id="buddyFace" alt=""><b id="buddyName">TOMMY</b></button>
 </div>
 <div id="count"></div>
 <div id="toasts"></div>
@@ -243,6 +267,7 @@
   <div class="howto">
     <div><kbd>Space</kbd> or click: hop</div>
     <div><kbd>←</kbd><kbd>→</kbd> pick a flyer</div>
+    <div><kbd>T</kbd> call <span id="buddyKeyName">Tommy</span></div>
     <div><kbd>E</kbd> easy mode</div>
     <div><kbd>P</kbd> pause</div>
     <div><kbd>M</kbd> sound</div>
@@ -1914,6 +1939,8 @@
   const POSE_YAW = { boxing: -Math.PI + 0.75, jumpshot: -Math.PI / 2 - 0.5 };
   const SEG_T = { boxing: 2.1, jumpshot: 1.9 }; // seconds per move in the celebration loop (others 1.8)
   const RELEASE = 0.62; // the jump shot lets go of the ball this far into its move
+  // Mid-air signature moves (the buddy's hello, goodbye and hand-over) face where they read best.
+  const AIR_YAW = { peace: -Math.PI + 0.45, wave: -Math.PI + 0.5, boxing: -Math.PI + 0.75 };
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const damp = (k, dt) => 1 - Math.exp(-k * dt);
 
@@ -1947,7 +1974,9 @@
     }
   }
 
-  function build(entry) {
+  // opts.scale: size relative to a 2 m kit person (default SCALE; the buddy uses his roster buddyScale).
+  function build(entry, opts = {}) {
+    const scale = opts.scale || SCALE;
     const root = new T.Group();
     const tilt = new T.Group();
     const turn = new T.Group();
@@ -1957,8 +1986,8 @@
     tilt.add(turn);
     turn.add(lean);
     lean.add(fit);
-    fit.scale.setScalar(SCALE);
-    fit.position.y = -CENTER * SCALE;
+    fit.scale.setScalar(scale);
+    fit.position.y = -CENTER * scale;
     const p = people.build(entry.look);
     fit.add(p.root);
     p.root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
@@ -1990,7 +2019,7 @@
       ball.visible = false;
       root.add(ball);
     }
-    const st = { phase: 0, yaw: FLY_YAW, pitch: 0, lean: 0, thrust: 0, mode: 'hover', modeT: 0, flapT: 9, spin: 0, dizzy: 0, hop: 0, shot: false };
+    const st = { phase: 0, yaw: FLY_YAW, pitch: 0, lean: 0, thrust: 0, mode: 'hover', modeT: 0, flapT: 9, spin: 0, dizzy: 0, hop: 0, shot: false, air: null, airT: 0 };
     turn.rotation.y = st.yaw;
 
     // t = time into the jump shot (or -1 when another move is playing); ball positions are in root space
@@ -2025,6 +2054,15 @@
     return {
       entry, root, person: p, jet,
       get hop() { return st.hop; },
+      headTop: (2.2 - CENTER) * scale, // top of the head above root
+      // A signature move done mid-air while flying (null: back to flapping). Returns seconds into the move.
+      airPose(mode) {
+        if (mode !== st.air) {
+          st.air = mode;
+          st.airT = 0;
+        }
+        return st.airT;
+      },
       get ball() { return ball; },
       // which celebration move is playing and how far into it (for tests)
       get move() { return st.mode === 'celebrate' ? segment(seq, st.modeT) : null; },
@@ -2054,7 +2092,9 @@
         const flying = m === 'hover' || m === 'fly';
         const cele = m === 'celebrate' ? segment(seq, st.modeT) : null;
         // facing
-        const wantYaw = flying || m === 'tumble' ? FLY_YAW : cele ? POSE_YAW[cele.mode] || FACE_YAW : FACE_YAW;
+        const air = flying ? st.air : null;
+        st.airT += dt;
+        const wantYaw = air ? AIR_YAW[air] || FLY_YAW : flying || m === 'tumble' ? FLY_YAW : cele ? POSE_YAW[cele.mode] || FACE_YAW : FACE_YAW;
         st.yaw += (wantYaw - st.yaw) * damp(m === 'tumble' ? 4 : 6, dt);
         turn.rotation.y = st.yaw;
         // pitch: nose up while rising, down while falling; a tumble spins head over heels
@@ -2063,7 +2103,7 @@
           tilt.rotation.z = st.spin;
         } else {
           let want = 0;
-          if (m === 'fly') want = clamp(vy * 0.045, -0.42, 0.3);
+          if (m === 'fly' && !air) want = clamp(vy * 0.045, -0.42, 0.3);
           else if (m === 'hover') want = Math.sin(st.modeT * 2.2) * 0.05;
           st.spin = 0;
           st.pitch += (want - st.pitch) * damp(10, dt);
@@ -2076,7 +2116,12 @@
         st.phase += dt * (flying ? 9 : 6);
         const lastHop = st.hop;
         st.hop = 0;
-        if (flying) {
+        if (air) {
+          // the move with the arms, legs dangling under the jetpack
+          standPose(p, air === 'boxing' ? st.airT * 6 : st.phase, air, damp(14, dt));
+          p.legL.rotation.x = 0.3 + Math.sin(st.phase) * 0.15;
+          p.legR.rotation.x = 0.1 - Math.sin(st.phase) * 0.15;
+        } else if (flying) {
           people.pose(p, st.phase, 'jet', damp(14, dt));
           flapArms(p, st.flapT, st.modeT);
         } else if (m === 'tumble') people.pose(p, st.phase, 'fall', damp(14, dt));
@@ -2102,7 +2147,7 @@
         st.dizzy = Math.max(0, st.dizzy - dt);
         stars.visible = st.dizzy > 0;
         if (stars.visible) {
-          stars.position.y = (2.15 - CENTER) * SCALE + 0.3;
+          stars.position.y = (2.15 - CENTER) * scale + 0.3;
           const a = st.modeT * 5;
           stars.children.forEach((s, i) => {
             const b = a + (i * Math.PI * 2) / 3;
@@ -2196,6 +2241,11 @@
       Kit.sound.tone({ type: 'triangle', f: 784, dur: 0.1, vol: 0.08 });
       Kit.sound.tone({ type: 'triangle', f: 1175, at: 0.07, dur: 0.18, vol: 0.08 });
     },
+    // a gate popping when the buddy saves you
+    pop() {
+      Kit.sound.tone({ type: 'triangle', f: 660, to: 1320, dur: 0.14, vol: 0.12 });
+      Kit.sound.hiss({ f: 3000, to: 800, dur: 0.25, vol: 0.12 });
+    },
     bonk() {
       Kit.sound.bump();
       Kit.sound.tone({ f: 420, to: 160, dur: 0.22, vol: 0.12 }); // a cartoon boing, never a crash
@@ -2275,7 +2325,7 @@
       if (p.vy > 0) p.vy = 0;
       ev = 'ceiling';
     }
-    for (const g of course.gates) if (gateHit(g, p.x, p.y)) return g;
+    for (const g of course.gates) if (!g.popped && gateHit(g, p.x, p.y)) return g;
     if (p.y < HIT_R) {
       if (!course.m.bounce) return 'floor';
       p.y = HIT_R;
@@ -2395,6 +2445,7 @@
   const view = { dist: 30, cy: 8, w: 30, lead: 6, aspect: 1, tan: Math.tan((40 / 2) * Math.PI / 180) };
   const ui = {};
   let ROSTER = [];
+  let faces = {}; // portrait data URLs by id
   let last = 0;
   const nozzle = [new T.Vector3(), new T.Vector3()];
 
@@ -2439,7 +2490,11 @@
   function newRun(attract) {
     for (const g of course.gates) undress(g);
     course = makeCourse(G.mode, (Math.random() * 1e9) | 0);
-    Object.assign(P, { x: 0, y: HOVER_Y, vy: 0, vx: 0, atTop: false });
+    Object.assign(P, { x: 0, y: HOVER_Y, vy: 0, vx: 0, atTop: false, invT: 0 });
+    dismissBuddy();
+    dropTreat();
+    trail.length = 0;
+    flapXs.length = 0;
     Object.assign(G, { score: 0, coins: 0, newBest: false, bestToast: false, overT: 0, shakeT: 0, closeK: 0, bounced: false, streak: 0, auto: attract || G.auto });
     G.best = store.get(bestKey(entry.id, isEasy()), 0);
     G.camX = P.x + view.lead;
@@ -2481,6 +2536,7 @@
 
   function doFlap() {
     P.vy = FLAP_V;
+    flapXs.push(P.x); // the buddy replays this hop when he reaches the same spot
     hero.flap();
     hero.nozzles(nozzle);
     for (const n of nozzle) puffs.emit(n.x, n.y, n.z, 5, { color: ['#ffffff', '#eef3f8', '#dde6ef'], spread: 0.12, speed: 0.9, vx: -1.2, vy: -2.6, gravity: -2, drag: 2.5, life: 0.75 });
@@ -2526,6 +2582,7 @@
 
   function crash(ev) {
     if (G.state === 'title') return newRun(true); // the autopilot shouldn't crash; if it does, quietly start over
+    dismissBuddy();
     G.state = 'fall';
     G.bounced = false;
     const fromGate = ev && typeof ev === 'object';
@@ -2619,12 +2676,23 @@
       hero.flap();
       puffs.emit(P.x, 0.1, 0.2, 8, { color: ['#e8e2d6', '#ffffff'], spread: 0.3, speed: 1.5, vy: 0.8, gravity: 1, drag: 3, life: 0.5 });
     }
-    if (ev === 'floor' || (ev && typeof ev === 'object')) crash(ev);
+    P.invT = Math.max(0, P.invT - dt);
+    if (ev === 'floor' || (ev && typeof ev === 'object')) {
+      if (buddyGuarding() || P.invT > 0) rescue(ev);
+      else crash(ev);
+    }
   }
 
   function tick(dt) {
     G.t += dt;
     G.shakeT = Math.max(0, G.shakeT - dt);
+    if (G.state === 'title' || G.state === 'count' || G.state === 'play') {
+      recordTrail();
+      updateBuddy(dt);
+    } else {
+      updateTreat(dt);
+      updateBall(dt);
+    }
     switch (G.state) {
       case 'title':
         playTick(dt, true);
@@ -2666,6 +2734,263 @@
         G.overT += dt;
         G.lockT -= dt;
         break;
+    }
+  }
+
+  // ---------------------------------------------------------------- the buddy (Tommy, or Teddy when Tommy plays)
+  // Tap his button, his card or T and the other brother flies along for ~10 s, a little behind you, copying your hops
+  // a beat later. He says hi with his signature move, flies up to hand over a treat, says bye and drops back.
+  // While he's with you a bump doesn't end the run: the gate pops (or you bounce off the platform) and he cheers.
+  // Like Metro Surfer's buddy. It's all for fun: the score works the same with or without him.
+
+  const TREATS = [['🍦', 'ICE CREAM'], ['💧', 'WATER'], ['🧃', 'JUICE BOX'], ['🍪', 'COOKIE'], ['🍉', 'WATERMELON'], ['🍌', 'BANANA']];
+  const GUARD_UNTIL = 9.6; // seconds into his visit when he starts dropping back
+  const GIVE_T = 4.6; // when he hands over the treat
+  const BUDDY_GONE = 12.5;
+  const BUDDY_Z = -1.1; // a little further from the camera than you, so he never hides you
+  const buddy = { entry: null, hero: null, on: false, t: 0, dx: 30, x: 0, y: HOVER_Y, vy: 0, lastX: 0, given: false, shot: false, cheerT: 0, move: null };
+  const trail = []; // your recent path { x, y }, which the buddy follows
+  const flapXs = []; // where you hopped
+  const treat = { sprite: null, flyT: -1, holdT: 0, from: new T.Vector3(), to: new T.Vector3() };
+  const ball = { sprite: null, t: -1, from: new T.Vector3(), to: new T.Vector3() };
+  const buddyGuarding = () => buddy.on && buddy.t < GUARD_UNTIL;
+
+  // Swap in the right buddy for the picked flyer: rebuild him and relabel his card, button and guard bar.
+  function setBuddy(id) {
+    if (buddy.entry && buddy.entry.id === id) return;
+    if (buddy.hero) {
+      dismissBuddy();
+      scene.remove(buddy.hero.root);
+    }
+    const e = Kit.roster.get(id);
+    buddy.entry = e;
+    buddy.hero = H.build(e, { scale: e.buddyScale || 0.8 });
+    const tag = Kit.gfx.nameTag(e.name, e.tag || '#ffb02e');
+    tag.position.y = buddy.hero.headTop + 0.45;
+    buddy.hero.root.add(tag);
+    buddy.hero.root.visible = false;
+    scene.add(buddy.hero.root);
+    const nice = e.name[0] + e.name.slice(1).toLowerCase();
+    const card = $('buddyCard');
+    if (card) {
+      if (faces[id]) card.querySelector('img').src = faces[id];
+      card.querySelector('.nm').textContent = e.name;
+      card.title = `Call ${nice} (T)`;
+    }
+    if (faces[id]) ui.buddyFace.src = ui.pwBuddyFace.src = faces[id];
+    ui.buddyName.textContent = e.name;
+    ui.buddyKeyName.textContent = nice;
+    ui.buddyBtn.title = `Call ${nice} (T)`;
+    ui.pwBuddy.title = `${nice} is guarding you`;
+  }
+
+  // Every tap brings him. Tapping again once he's handed over his treat makes him say hi and bring another one.
+  function callBuddy() {
+    if (G.state !== 'title' && G.state !== 'count' && G.state !== 'play') return;
+    sfx('init');
+    if (!buddy.on) return summonBuddy();
+    if (buddy.given) {
+      buddy.t = 1.0;
+      buddy.given = false;
+      buddy.shot = false;
+    }
+  }
+
+  function summonBuddy() {
+    Object.assign(buddy, { on: true, t: 0, dx: view.w * 0.5 + 4, given: false, shot: false, cheerT: 0, move: null });
+    buddy.x = P.x - buddy.dx;
+    buddy.lastX = buddy.x;
+    buddy.y = trailY(buddy.x);
+    buddy.hero.root.visible = true;
+    buddy.hero.airPose(null);
+    toast(`${buddy.entry.name}'S HERE!`);
+    sfx('jet');
+  }
+
+  function dismissBuddy() {
+    buddy.on = false;
+    buddy.move = null;
+    if (buddy.hero) buddy.hero.root.visible = false;
+  }
+
+  function recordTrail() {
+    const last = trail[trail.length - 1];
+    if (!last || P.x - last.x > 0.05) trail.push({ x: P.x, y: P.y });
+    else last.y = P.y;
+    while (trail.length && trail[0].x < P.x - 60) trail.shift();
+    while (flapXs.length && flapXs[0] < P.x - 60) flapXs.shift();
+  }
+
+  // Your height when you were at x (the buddy flies the same path, so he goes through the same gaps).
+  function trailY(x) {
+    if (!trail.length) return P.y;
+    if (x <= trail[0].x) return trail[0].y;
+    for (let i = trail.length - 1; i > 0; i--) {
+      const a = trail[i - 1], b = trail[i];
+      if (a.x <= x) return x >= b.x ? b.y : lerp(a.y, b.y, (x - a.x) / (b.x - a.x));
+    }
+    return trail[0].y;
+  }
+
+  function updateBuddy(dt) {
+    updateTreat(dt);
+    updateBall(dt);
+    if (!buddy.on) return;
+    buddy.t += dt;
+    const t = buddy.t;
+    // how far behind you he flies: fly in, keep pace, come close for the hand-over, keep pace, drop back
+    const giving = t > GIVE_T - 0.7 && t < GIVE_T + 0.4;
+    const target = t >= GUARD_UNTIL ? view.w * 0.6 + 6 : giving ? 1.0 : 2.4;
+    buddy.dx += (target - buddy.dx) * damp(t >= GUARD_UNTIL ? 0.9 : 2.6, dt);
+    const x = P.x - buddy.dx;
+    const y = clamp(trailY(x), HIT_R, PLAY_TOP - HIT_R);
+    buddy.vy = lerp(buddy.vy, (y - buddy.y) / Math.max(dt, 1e-4), damp(10, dt));
+    buddy.y = y;
+    buddy.x = x;
+    // your hops, a beat later
+    for (const fx of flapXs) {
+      if (fx > buddy.lastX && fx <= x) {
+        buddy.hero.flap();
+        buddy.hero.nozzles(nozzle);
+        for (const n of nozzle) puffs.emit(n.x, n.y, n.z, 3, { color: ['#ffffff', '#eef3f8'], spread: 0.1, speed: 0.7, vx: -1, vy: -2.2, gravity: -2, drag: 2.5, life: 0.6 });
+      }
+    }
+    buddy.lastX = Math.max(buddy.lastX, x);
+    // signature moves: hi when he arrives (and when he saves you), bye before he drops back
+    buddy.cheerT = Math.max(0, buddy.cheerT - dt);
+    const hello = (t > 1.2 && t < 2.8) || buddy.cheerT > 0;
+    const bye = t > 8.0 && t < GUARD_UNTIL + 0.5;
+    const move = giving ? 'give' : hello ? Kit.roster.signature(buddy.entry, 'hello') : bye ? Kit.roster.signature(buddy.entry, 'goodbye') : null;
+    buddy.move = move;
+    const moveT = buddy.hero.airPose(move);
+    if (move === 'jumpshot' && moveT > 0.35 && !buddy.shot) shootBall();
+    if (!buddy.given && t > GIVE_T) {
+      buddy.given = true;
+      giveTreat();
+    }
+    if (t > BUDDY_GONE) dismissBuddy();
+  }
+
+  function renderBuddy(dt) {
+    const guarding = buddyGuarding();
+    ui.pwBuddy.classList.toggle('on', guarding);
+    ui.buddyBtn.classList.toggle('guarding', guarding);
+    if (guarding) ui.buddyFill.style.transform = `scaleX(${clamp(1 - buddy.t / GUARD_UNTIL, 0, 1)})`;
+    if (!buddy.on) return;
+    buddy.hero.setMode(G.state === 'count' ? 'hover' : 'fly');
+    buddy.hero.update(dt, buddy.vy);
+    buddy.hero.root.position.set(buddy.x, buddy.y, BUDDY_Z);
+  }
+
+  function giveTreat() {
+    const [emoji, label] = TREATS[Math.floor(Math.random() * TREATS.length)];
+    if (!treat.sprite) treat.sprite = new T.Sprite(new T.SpriteMaterial({ depthWrite: false }));
+    dropTreat();
+    treat.sprite.material.map = Kit.gfx.emojiTexture(emoji);
+    treat.sprite.material.needsUpdate = true;
+    buddy.hero.root.updateMatrixWorld(true);
+    Kit.people.handWorld(buddy.hero.person, 1, treat.from);
+    treat.from.x -= P.x; // tracked relative to you, since you keep flying
+    scene.add(treat.sprite);
+    treat.sprite.position.copy(treat.from);
+    treat.sprite.scale.setScalar(0.6);
+    treat.sprite.visible = true;
+    treat.flyT = 0;
+    toast(`${emoji} ${label} FROM ${buddy.entry.name}!`);
+    sfx('powerup');
+  }
+
+  // the treat arcs from his hand into yours, and you hold it for a while
+  function updateTreat(dt) {
+    if (!treat.sprite) return;
+    if (treat.flyT >= 0) {
+      treat.flyT += dt / 0.55;
+      hero.root.updateMatrixWorld(true);
+      Kit.people.handWorld(hero.person, 1, treat.to);
+      const k = Math.min(1, treat.flyT);
+      treat.sprite.position.set(lerp(treat.from.x + P.x, treat.to.x, k), lerp(treat.from.y, treat.to.y, k) + Math.sin(k * Math.PI) * 1.2, lerp(treat.from.z, treat.to.z, k));
+      if (k >= 1) {
+        treat.flyT = -1;
+        treat.holdT = 9;
+        hero.person.armR.add(treat.sprite);
+        treat.sprite.position.set(0.12, -0.8, -0.2); // in front of the hand, on the camera side
+        treat.sprite.scale.setScalar(0.7);
+        sparks.emit(treat.to.x, treat.to.y, treat.to.z, 14, { color: ['#ffffff', '#ffe14d'], spread: 0.2, speed: 2.4, gravity: 2, drag: 2, life: 0.5 });
+      }
+    } else if (treat.holdT > 0) {
+      treat.holdT -= dt;
+      if (treat.holdT <= 0) dropTreat();
+    }
+  }
+
+  function dropTreat() {
+    if (!treat.sprite) return;
+    treat.flyT = -1;
+    treat.holdT = 0;
+    treat.sprite.visible = false;
+    scene.add(treat.sprite);
+  }
+
+  // Teddy's goodbye jump shot: a 🏀 arcs from his hands to a spot high up ahead of you, then swishes.
+  function shootBall() {
+    buddy.shot = true;
+    if (!ball.sprite) {
+      ball.sprite = new T.Sprite(new T.SpriteMaterial({ map: Kit.gfx.emojiTexture('🏀'), depthWrite: false }));
+      ball.sprite.scale.setScalar(0.55);
+      scene.add(ball.sprite);
+    }
+    buddy.hero.root.updateMatrixWorld(true);
+    Kit.people.handWorld(buddy.hero.person, 1, ball.from);
+    ball.from.x -= P.x; // relative to you, so it flies ahead on screen
+    ball.to.set(Math.min(view.w * 0.5, 7), clamp(ball.from.y + 3.5, 3, PLAY_TOP - 1), BUDDY_Z);
+    ball.t = 0;
+    ball.sprite.visible = true;
+  }
+
+  function updateBall(dt) {
+    if (ball.t < 0) return;
+    ball.t += dt / 0.9;
+    const k = Math.min(1, ball.t);
+    ball.sprite.position.lerpVectors(ball.from, ball.to, k);
+    ball.sprite.position.x += P.x;
+    ball.sprite.position.y += Math.sin(k * Math.PI) * 2.2;
+    ball.sprite.material.rotation = -ball.t * 8;
+    if (k >= 1) {
+      ball.t = -1;
+      ball.sprite.visible = false;
+      const q = ball.sprite.position;
+      sparks.emit(q.x, q.y, q.z, 24, { color: ['#ff9f1c', '#ffd27a', '#ffffff'], spread: 0.3, speed: 3, gravity: 3, drag: 2, life: 0.6 });
+      sfx('swish');
+      toast('SWISH!');
+    }
+  }
+
+  // A bump while he's guarding: the gate pops (or you bounce off the platform), and he cheers.
+  function rescue(ev) {
+    const fresh = G.t - (G.saveT || -9) > 1.2;
+    G.saveT = G.t;
+    P.invT = 1.0;
+    if (ev && typeof ev === 'object') popGate(ev);
+    else {
+      P.y = HIT_R + 0.05;
+      P.vy = FLAP_V * 1.15;
+      puffs.emit(P.x, 0.1, 0.2, 10, { color: ['#e8e2d6', '#ffffff'], spread: 0.3, speed: 1.6, vy: 0.8, gravity: 1, drag: 3, life: 0.6 });
+    }
+    if (!fresh) return;
+    buddy.cheerT = 1.4;
+    G.shakeT = 0.15;
+    toast(`${buddy.entry.name} SAVED YOU!`);
+    sfx('pop');
+  }
+
+  function popGate(g) {
+    g.popped = true;
+    if (g.vis) g.vis.obj.visible = false;
+    const colors = A.TRAIN_COLORS.concat(['#ffffff', '#f3f1ea']);
+    for (let y = 0.5; y < PLAY_TOP; y += 1.4) {
+      if (y > g.lo + 0.2 && y < g.hi - 0.2) continue; // only where there was something
+      sparks.emit(g.x, y, 0.5, 6, { color: colors, spread: 0.9, speed: 4, gravity: 6, drag: 1.5, life: 0.8 });
+      puffs.emit(g.x, y, 0.8, 2, { color: ['#ffffff', '#eef3f8'], spread: 0.8, speed: 1.2, gravity: -1, drag: 2, life: 0.7 });
     }
   }
 
@@ -2713,6 +3038,7 @@
     if (hero && entry && e.id === entry.id) return;
     entry = e;
     store.set('kid', e.id);
+    dropTreat(); // it may be in the old hero's hand
     if (hero) scene.remove(hero.root);
     hero = H.build(e);
     scene.add(hero.root);
@@ -2720,14 +3046,15 @@
     G.mode = store.get('easy.' + e.id, e.id === 'tommy') ? 'easy' : 'normal';
     ui.easyBtn.setAttribute('aria-pressed', isEasy() ? 'true' : 'false');
     ui.easyBtn.querySelector('b').textContent = isEasy() ? 'EASY ON' : 'EASY OFF';
-    document.querySelectorAll('.avatar').forEach((b) => b.setAttribute('aria-checked', b.dataset.id === e.id ? 'true' : 'false'));
+    document.querySelectorAll('.avatar:not(.buddy)').forEach((b) => b.setAttribute('aria-checked', b.dataset.id === e.id ? 'true' : 'false'));
+    setBuddy(Kit.roster.buddyFor(e.id));
     refreshBests();
     if (user) sfx('click');
     if (G.state === 'title') newRun(true);
   }
 
   function refreshBests() {
-    document.querySelectorAll('.avatar').forEach((b) => {
+    document.querySelectorAll('.avatar:not(.buddy)').forEach((b) => {
       b.querySelector('.bs').textContent = 'BEST ' + store.get(bestKey(b.dataset.id, store.get('easy.' + b.dataset.id, b.dataset.id === 'tommy')), 0);
     });
     if (entry) {
@@ -2786,7 +3113,6 @@
   }
 
   function buildPicker() {
-    let faces = {};
     try {
       faces = Kit.portraits(ROSTER, { size: 176 });
     } catch (e) { /* no portraits: the cards still show names */ }
@@ -2808,6 +3134,20 @@
       });
       box.appendChild(b);
     }
+    // the buddy card, right after the two brothers: tap it and the other brother flies in right away
+    const b = document.createElement('button');
+    b.className = 'avatar buddy';
+    b.id = 'buddyCard';
+    b.innerHTML = '<img alt=""><span class="nm"></span><span class="bs">TAP ME!</span>';
+    b.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      sfx('init');
+      sfx('click');
+      callBuddy();
+      b.blur();
+    });
+    const after = box.querySelector('.avatar[data-id="tommy"]');
+    box.insertBefore(b, after ? after.nextSibling : null);
   }
 
   // ---------------------------------------------------------------- rendering
@@ -2830,6 +3170,8 @@
     if (s === 'title' || s === 'play') hero.setMode('fly');
     hero.update(dt, P.vy);
     hero.root.position.set(P.x, P.y + hero.hop, 0);
+    hero.root.visible = !(P.invT > 0 && s === 'play' && Math.floor(G.t * 14) % 2 === 0); // blink while protected
+    renderBuddy(dt);
     // jet sparks while flying
     if (s === 'title' || s === 'play' || s === 'count') {
       G.sparkT -= dt;
@@ -2876,11 +3218,11 @@
     requestAnimationFrame(frame);
     const dt = clamp((now - last) / 1000, 0, 0.05);
     last = now;
-    if (G.state !== 'paused') {
+    if (G.state !== 'paused' && !G.frozen) {
       const n = Math.max(1, Math.ceil(dt / DT - 0.01));
       for (let i = 0; i < n; i++) tick(dt / n);
     }
-    render(G.state === 'paused' ? 0 : dt);
+    render(G.state === 'paused' || G.frozen ? 0 : dt);
   }
 
   // ---------------------------------------------------------------- input
@@ -2904,6 +3246,7 @@
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const c = e.code;
       if (c === 'KeyM') return toggleMute();
+      if (c === 'KeyT') return callBuddy();
       if (c === 'KeyP' || c === 'Escape') return togglePause();
       if (G.state === 'title') {
         if (c === 'ArrowLeft' || c === 'ArrowRight' || c === 'KeyA' || c === 'KeyD') {
@@ -2911,7 +3254,7 @@
           const i = ROSTER.indexOf(entry) + (c === 'ArrowLeft' || c === 'KeyA' ? -1 : 1);
           sfx('init');
           pickCharacter(ROSTER[(i + ROSTER.length) % ROSTER.length].id, true);
-          const sel = document.querySelector('.avatar[aria-checked="true"]');
+          const sel = document.querySelector('.avatar:not(.buddy)[aria-checked="true"]');
           if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: 'nearest', inline: 'center' });
           return;
         }
@@ -2939,10 +3282,11 @@
     tapBtn('muteBtn', toggleMute);
     tapBtn('muteTitle', toggleMute);
     tapBtn('easyBtn', () => { sfx('click'); setEasy(!isEasy()); });
+    tapBtn('buddyBtn', callBuddy);
 
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
-        if (G.state === 'play' || G.state === 'count') togglePause();
+        if ((G.state === 'play' || G.state === 'count') && !G.keepAwake) togglePause();
         sfx('suspend');
       } else sfx('resume');
     });
@@ -3011,7 +3355,8 @@
     starBurst = A.makeParticles(60, 0.55, A.starTexture);
     scene.add(puffs.obj, sparks.obj, starBurst.obj);
 
-    for (const id of ['title', 'hud', 'over', 'pause', 'score', 'coins', 'coinPill', 'count', 'toasts', 'picker', 'easyBtn', 'muteBtn', 'muteTitle', 'bestName', 'bestTitle', 'bestMode', 'ovScore', 'ovCoins', 'ovBest', 'ovBestLabel', 'newBest', 'ovTitle']) ui[id] = $(id);
+    for (const id of ['title', 'hud', 'over', 'pause', 'score', 'coins', 'coinPill', 'count', 'toasts', 'picker', 'easyBtn', 'muteBtn', 'muteTitle', 'bestName', 'bestTitle', 'bestMode', 'ovScore', 'ovCoins', 'ovBest', 'ovBestLabel', 'newBest', 'ovTitle', 'buddyBtn', 'buddyFace', 'buddyName', 'buddyKeyName', 'pwBuddy', 'pwBuddyFace']) ui[id] = $(id);
+    ui.buddyFill = document.querySelector('#pwBuddy b');
 
     ROSTER = Kit.roster.list.slice(); // Teddy and Tommy come first
     buildPicker();
@@ -3034,11 +3379,21 @@
     G, P,
     get course() { return course; },
     get hero() { return hero; },
+    // Call the buddy (like his button) and report where he is.
+    buddy(call = true) {
+      if (call) callBuddy();
+      const r = buddy.hero.root.position;
+      return { who: buddy.entry.id, on: buddy.on, t: +buddy.t.toFixed(2), guarding: buddyGuarding(), dx: +(P.x - r.x).toFixed(2), y: +r.y.toFixed(2), given: buddy.given, move: buddy.move, holding: treat.holdT > 0 };
+    },
     start: startGame,
     flap: primary,
     pick(id) { pickCharacter(id, true); return entry.id; },
     easy(on) { setEasy(on); return G.mode; },
     pause: togglePause,
+    // Don't pause when the tab is hidden (for screenshots from a hidden Browser pane).
+    keepAwake(on = true) { G.keepAwake = on; return on; },
+    // Stop real-time ticking (drawing goes on), so a moment reached with step() stays put for a screenshot.
+    freeze(on = true) { G.frozen = on; return on; },
     // Advance `seconds` of game time right now and draw (the Browser pane throttles animation frames when hidden).
     // { auto: true } lets the autopilot fly a real run while stepping (it doesn't count toward BEST).
     step(seconds = 1, opts = {}) {
