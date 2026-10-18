@@ -307,20 +307,29 @@
     return toTexture(c, true);
   }
 
+  // A station roundel. Names stay as they are; METRO reads 地铁 in 中文 (redrawn when the language changes).
+  const signRedraws = [];
   function signTexture(word, color) {
     const [c, g] = makeCanvas(256, 256);
-    g.fillStyle = color;
-    g.beginPath(); g.arc(128, 128, 120, 0, 7); g.fill();
-    g.fillStyle = '#fff';
-    g.beginPath(); g.arc(128, 128, 78, 0, 7); g.fill();
-    g.fillStyle = '#1b3f9c';
-    g.fillRect(4, 100, 248, 56);
-    g.fillStyle = '#fff';
-    g.font = 'bold 40px "Bungee", "Arial Black", sans-serif';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillText(word, 128, 130, 232);
-    return toTexture(c);
+    const tex = toTexture(c);
+    const draw = () => {
+      g.clearRect(0, 0, 256, 256);
+      g.fillStyle = color;
+      g.beginPath(); g.arc(128, 128, 120, 0, 7); g.fill();
+      g.fillStyle = '#fff';
+      g.beginPath(); g.arc(128, 128, 78, 0, 7); g.fill();
+      g.fillStyle = '#1b3f9c';
+      g.fillRect(4, 100, 248, 56);
+      g.fillStyle = '#fff';
+      g.font = 'bold 40px "Bungee", "Arial Black", sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(window.Kit.lang ? window.Kit.lang.t(word) : word, 128, 130, 232);
+      tex.needsUpdate = true;
+    };
+    draw();
+    signRedraws.push(draw);
+    return tex;
   }
 
   function coinFaceTexture() {
@@ -393,6 +402,7 @@
     M.capDark = std('#20202a');
     M.signs = SIGN_WORDS.map((w, i) => std('#ffffff', { map: signTexture(w, i % 2 ? '#2f9bff' : '#e8322e'), roughness: 0.5 }));
     M.signBack = std('#d9d9d9');
+    if (window.Kit.lang) window.Kit.lang.onChange(() => signRedraws.forEach((draw) => draw()));
     const coinFace = std('#ffffff', { map: coinFaceTexture(), metalness: 0.35, roughness: 0.3, emissive: '#5a3c00', emissiveIntensity: 0.35 });
     M.coin = [std('#e0a400', { metalness: 0.5, roughness: 0.3, emissive: '#4a3000', emissiveIntensity: 0.4 }), coinFace, coinFace];
     M.lampPost = std('#3d4a5c', { metalness: 0.3, roughness: 0.5 });

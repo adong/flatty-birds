@@ -3,6 +3,7 @@
 [![FlaTTy Birds title screen](docs/screenshot.jpg)](https://adong.github.io/flatty-birds/)
 
 Press **?** any time (or tap the round **?** button on the left edge) to see the keys. The game waits while you look.
+Tap **中文 / EN** under it to switch between English and 中文 (the dashboard and every game remember the choice).
 
 A Flappy Bird-style game starring Teddy and Tommy, built with Claude Code from plain JavaScript and Three.js.
 The kid wears a jetpack and hops through towers of stacked subway trains under an elevated metro line.
@@ -84,6 +85,8 @@ index.html       page, HUD and screens (CSS inline)
 js/scene.js      canvas textures; sky, city layers, platform and viaduct; train-stack gates, coins, jetpack, particles
 js/hero.js       the flying kid: Kit person + jetpack, flying / tumble / stand / celebration poses
 js/game.js       physics, course generator, autopilot, fairness check, the buddy, states, input, HUD, test hooks
+js/keys.js       the keys the ? panel shows (Kit.help)
+js/zh.js         中文: the dictionary and rules for every word on the page, the toasts and the ? panel (Kit.lang)
 kit/             copy of ~/claude-games/kit (python3 ../kit/tools/sync.py .); don't edit it here
 dist/flatty-birds.html   the single-page build
 PLAN.md          the plan this was built from
