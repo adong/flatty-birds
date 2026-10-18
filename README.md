@@ -2,6 +2,8 @@
 
 [![FlaTTy Birds title screen](docs/screenshot.jpg)](https://adong.github.io/flatty-birds/)
 
+Press **?** any time (or tap the round **?** button on the left edge) to see the keys. The game waits while you look.
+
 A Flappy Bird-style game starring Teddy and Tommy, built with Claude Code from plain JavaScript and Three.js.
 The kid wears a jetpack and hops through towers of stacked subway trains under an elevated metro line.
 There are no image, model, or audio files: textures are painted on canvases, the people are built from boxes by the shared kit,
