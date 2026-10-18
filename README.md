@@ -2,10 +2,14 @@
 
 [![FlaTTy Birds title screen](docs/screenshot.jpg)](https://adong.github.io/flatty-birds/)
 
+Tap to flap between stacked trains and station pillars. Call your brother to fly beside you.
+
+**中文：** 点一下就扇翅膀，穿过叠起来的火车和站台柱子。叫兄弟来陪你一起飞。
+
 Press **?** any time (or tap the round **?** button on the left edge) to see the keys. The game waits while you look.
 Tap the language button under it (the A文 icon) to switch between English and 中文; the dashboard and every game remember the choice.
 
-A Flappy Bird-style game starring Teddy and Tommy, built with Claude Code from plain JavaScript and Three.js.
+A tap-to-flap game starring Teddy and Tommy, built with Claude Code from plain JavaScript and Three.js.
 The kid wears a jetpack and hops through towers of stacked subway trains under an elevated metro line.
 There are no image, model, or audio files: textures are painted on canvases, the people are built from boxes by the shared kit,
 and every sound is synthesised.
